@@ -1,6 +1,6 @@
 streamlit
 pandas
-matplotlib
 google-cloud-videointelligence
-opencv-python # opencv
+opencv-python-headless # opencv
 numpy
+ffmpy
