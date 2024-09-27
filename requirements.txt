@@ -2,5 +2,5 @@ streamlit
 pandas
 matplotlib
 google-cloud-videointelligence
-opencv # maybe opencv-python
+opencv-python # opencv
 numpy
