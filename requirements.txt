@@ -1,2 +1,6 @@
 streamlit
-openai
+pandas
+matplotlib
+google-cloud-videointelligence
+opencv # maybe opencv-python
+numpy
