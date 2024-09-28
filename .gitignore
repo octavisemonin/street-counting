@@ -1,4 +1,8 @@
 .streamlit/secrets.toml
+*.mp4
+*.mov
+*.avi
+*.pickle
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

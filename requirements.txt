@@ -1,6 +1,8 @@
 streamlit
+st-gsheets-connection
 pandas
 google-cloud-videointelligence
 opencv-python-headless # opencv
 numpy
+ffmpeg
 ffmpy

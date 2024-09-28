@@ -1,21 +1,22 @@
 import streamlit as st
+from streamlit_gsheets import GSheetsConnection
 
 import cv2
 import pickle
 import numpy as np
 import pandas as pd
+import time
 
-from datetime import timedelta
+from datetime import datetime
 from google.cloud import videointelligence
 from google.oauth2 import service_account
 
-import ffmpy
+from ffmpy import FFmpeg
 
 # Show title and description.
 st.title("🚸 Street Counting")
 st.write(
     "Upload a video below and the robots will count stuff! "
-    # "To use this app, you need to provide an OpenAI API key, which you can get [here](https://platform.openai.com/account/api-keys). "
 )
 
 # # Ask user for their OpenAI API key via `st.text_input`.
@@ -32,6 +33,7 @@ credentials = service_account.Credentials.from_service_account_info(
     st.secrets["gcp_service_account"]
 )
 video_client = videointelligence.VideoIntelligenceServiceClient(credentials=credentials)
+sheets_client = st.connection("gsheets", type=GSheetsConnection)
 
 # Let the user upload a file via `st.file_uploader`.
 video = st.file_uploader(
@@ -49,9 +51,12 @@ if video:
 
     st.write("\nProcessing video for object annotations (hang in there, this takes awhile).")
 
+    start_time = time.time()
     # result = operation.result(timeout=500)
+    process_time = time.time() - start_time
     st.write("\nFinished processing.\n")
 
+    # Skipping actual API calls for now
     temp = 'result-4a2e7a146c8f7bc1dd61acac940c5b04.pickle'
     with open(temp, 'rb') as handle:
         result = pickle.load(handle)
@@ -104,6 +109,14 @@ if video:
     st.write(f"{n_crossing_right} crossing right, {n_crossing_left} crossing left:")
     st.dataframe(counts)
 
+    st.write("Run history:")
+    df = sheets_client.read()
+    df.loc[len(df)+1] = [datetime.now(), video.name, video.size, 
+                         tracks['time'].max(), process_time,
+                         len(objects), len(tracks)]
+    sheets_client.update(worksheet=0, data=df)
+    st.dataframe(df)
+
     st.download_button(
         "Download objects",
         objects.to_csv().encode('utf-8'),
@@ -117,9 +130,6 @@ if video:
         "tracks.csv",
         "text/csv",
     )
-
-    ffmpy
-    # st.video(video)
 
     # Draw annotations
     colors = {
@@ -145,8 +155,8 @@ if video:
     timestamps = []
     frame_number = 0
 
-    output_path = f'{video.name}-annotated.mp4'
-    fourcc = cv2.VideoWriter_fourcc(*'h264')
+    output_path = f'{video.name}.annotated.mp4'
+    fourcc = cv2.VideoWriter_fourcc(*'mp4v')
     width = int(cap.get(3)) 
     height = int(cap.get(4)) 
 
@@ -154,6 +164,7 @@ if video:
 
     progress_text = "Drawing annotations. Please wait."
     my_bar = st.progress(0, text=progress_text)
+    st_image = st.empty()
 
     while(cap.isOpened()):
         ret, img = cap.read()
@@ -189,17 +200,25 @@ if video:
             out.write(img)
 
             my_bar.progress(frame_number/length, text=progress_text)
+            if frame_number % 10 == 0: st_image.image(img)
             # cv2.imshow("annotations", img)
             # if cv2.waitKey(1) == 27:
             #     break
         else:
+            cap.release()
+            out.release()
+            my_bar.empty()
             break
-
-    cap.release()
-    out.release()
-    my_bar.empty()
 
     with open(output_path, 'rb') as f:
         st.download_button('Download annotated video', f, file_name=output_path)  # Defaults to 'application/octet-stream'
 
-    st.video(output_path)
+    # This doesn't seem to work on streamlit cloud...
+    # https://discuss.streamlit.io/t/processing-video-with-opencv-and-write-it-to-disk-to-display-in-st-video/28891/2
+    # ff = FFmpeg(
+    #     inputs={output_path: '-y -i'},
+    #     outputs={output_path: '-c:v libx264'}
+    # )
+    # ff.run()
+    # st.video(output_path)
+    # st.image(img)
