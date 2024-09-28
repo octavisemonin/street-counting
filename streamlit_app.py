@@ -49,12 +49,11 @@ if video:
                     "input_content": video.getvalue()}
     )
 
-    st.write("\nProcessing video for object annotations (hang in there, this takes awhile).")
-
-    start_time = time.time()
-    result = operation.result(timeout=500)
-    process_time = time.time() - start_time
-    st.write("\nFinished processing.\n")
+    with st.spinner("\The robots are annotating (hang in there, this takes awhile)."):
+        start_time = time.time()
+        result = operation.result(timeout=500)
+        process_time = time.time() - start_time
+        st.write("\nFinished processing.\n")
 
     # Use this for debugging actual API calls for now
     # temp = 'result-4a2e7a146c8f7bc1dd61acac940c5b04.pickle'
@@ -111,7 +110,7 @@ if video:
 
     st.write("Run history:")
     df = sheets_client.read()
-    df.loc[len(df)+1] = [datetime.now(), video.name, video.size, 
+    df.loc[len(df)] = [datetime.now(), video.name, video.size, 
                          tracks['time'].max(), process_time,
                          len(objects), len(tracks)]
     sheets_client.update(worksheet=0, data=df)
