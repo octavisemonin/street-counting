@@ -44,22 +44,22 @@ video = st.file_uploader(
 features = [videointelligence.Feature.OBJECT_TRACKING]
 
 if video:
-    # operation = video_client.annotate_video(
-    #     request={"features": features, 
-    #                 "input_content": video.getvalue()}# "input_content": input_content}
-    # )
+    operation = video_client.annotate_video(
+        request={"features": features, 
+                    "input_content": video.getvalue()}
+    )
 
     st.write("\nProcessing video for object annotations (hang in there, this takes awhile).")
 
     start_time = time.time()
-    # result = operation.result(timeout=500)
+    result = operation.result(timeout=500)
     process_time = time.time() - start_time
     st.write("\nFinished processing.\n")
 
-    # Skipping actual API calls for now
-    temp = 'result-4a2e7a146c8f7bc1dd61acac940c5b04.pickle'
-    with open(temp, 'rb') as handle:
-        result = pickle.load(handle)
+    # Use this for debugging actual API calls for now
+    # temp = 'result-4a2e7a146c8f7bc1dd61acac940c5b04.pickle'
+    # with open(temp, 'rb') as handle:
+    #     result = pickle.load(handle)
 
     # Analyze
     object_annotations = result.annotation_results[0].object_annotations
