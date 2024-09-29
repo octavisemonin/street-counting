@@ -13,52 +13,49 @@ from google.oauth2 import service_account
 
 from ffmpy import FFmpeg
 
-# Show title and description.
-st.title("🚸 Street Counting")
-st.write(
-    "Upload a video below and the robots will count stuff! "
-)
-
-# # Ask user for their OpenAI API key via `st.text_input`.
-# # Alternatively, you can store the API key in `./.streamlit/secrets.toml` and access it
-# # via `st.secrets`, see https://docs.streamlit.io/develop/concepts/connections/secrets-management
-# gcp_api_key = st.text_input("Google Cloud API Key", type="password")
-# if not gcp_api_key:
-#     st.info("Please add your Google Cloud API key to continue.", icon="🗝️")
-# else:
+# Session state initialization
+if 'annotation_result' not in st.session_state:
+    st.session_state['annotation_result'] = None
 
 # Create a GCP service account.
-# client = OpenAI(api_key=openai_api_key)
 credentials = service_account.Credentials.from_service_account_info(
     st.secrets["gcp_service_account"]
 )
 video_client = videointelligence.VideoIntelligenceServiceClient(credentials=credentials)
 sheets_client = st.connection("gsheets", type=GSheetsConnection)
 
-# Let the user upload a file via `st.file_uploader`.
-video = st.file_uploader(
-    "Upload a document (.mp4, .mov, or .avi)", type=("mp4", "mov", "avi")
+# Show title and description.
+st.title("🚸 Street Counting")
+st.write(
+    "Upload a video below and the robots will count stuff! "
 )
 
-# Send to Google
-features = [videointelligence.Feature.OBJECT_TRACKING]
+# Let the user upload a file via `st.file_uploader`.
+video = st.file_uploader(
+    "Upload a video (.mp4, .mov, or .avi). We will not keep it!", type=("mp4", "mov", "avi")
+)
 
-if video:
-    operation = video_client.annotate_video(
-        request={"features": features, 
-                    "input_content": video.getvalue()}
-    )
+if video and st.session_state['annotation_result'] is None:
 
-    with st.spinner("\The robots are annotating (hang in there, this takes awhile)."):
+    with st.spinner("The robots are annotating (hang in there, this takes awhile)."):
         start_time = time.time()
+
+        # Send to Google
+        features = [videointelligence.Feature.OBJECT_TRACKING]
+        operation = video_client.annotate_video(
+            request={"features": features, 
+                        "input_content": video.getvalue()}
+        )
         result = operation.result(timeout=500)
+
+        # Use this for debugging instead of using API calls:
+        # temp = 'result-4a2e7a146c8f7bc1dd61acac940c5b04.pickle'
+        # with open(temp, 'rb') as handle:
+        #     result = pickle.load(handle)
+
+        st.session_state['annotation_result'] = result
         process_time = time.time() - start_time
         st.write("\nFinished processing.\n")
-
-    # Use this for debugging actual API calls for now
-    # temp = 'result-4a2e7a146c8f7bc1dd61acac940c5b04.pickle'
-    # with open(temp, 'rb') as handle:
-    #     result = pickle.load(handle)
 
     # Analyze
     object_annotations = result.annotation_results[0].object_annotations
@@ -108,6 +105,7 @@ if video:
     st.write(f"{n_crossing_right} crossing right, {n_crossing_left} crossing left:")
     st.dataframe(counts)
 
+    # Log run history in Google Sheets
     st.write("Run history:")
     df = sheets_client.read()
     df.loc[len(df)] = [datetime.now(), video.name, video.size, 
@@ -221,3 +219,8 @@ if video:
     # ff.run()
     # st.video(output_path)
     # st.image(img)
+
+elif video is None:
+    st.session_state['annotation_result'] = None
+
+st.write('Questions? Email octavi@gmail.com')
