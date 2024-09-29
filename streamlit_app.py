@@ -106,14 +106,13 @@ if video and st.session_state['annotation_result'] is None:
     st.dataframe(counts)
 
     # Log run history in Google Sheets
-    st.write("Run history:")
-    df = sheets_client.read()
+    df = sheets_client.read(ttl=0)
     df.loc[len(df)] = [datetime.now(), video.name, video.size, 
                          tracks['time'].max(), process_time,
                          len(objects), len(tracks)]
     sheets_client.update(worksheet=0, data=df)
-    st.dataframe(df)
 
+    # User can download their data
     st.download_button(
         "Download objects",
         objects.to_csv().encode('utf-8'),
@@ -223,4 +222,7 @@ if video and st.session_state['annotation_result'] is None:
 elif video is None:
     st.session_state['annotation_result'] = None
 
+st.write("Run history:")
+df = sheets_client.read(ttl=0)
+st.dataframe(df)
 st.write('Questions? Email octavi@gmail.com')
