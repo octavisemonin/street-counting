@@ -32,7 +32,7 @@ st.write(
 
 # Let the user upload a file via `st.file_uploader`.
 video = st.file_uploader(
-    "Upload a video (.mp4, .mov, or .avi). We will not keep it!", type=("mp4", "mov", "avi")
+    "Upload a video (.mp4, .mov, or .avi). We will not keep it.", type=("mp4", "mov", "avi")
 )
 
 if video and st.session_state['annotation_result'] is None:
