@@ -72,11 +72,12 @@ def analyze(result):
     counts = objects.groupby(['type','crossing']).size().unstack()
 
     # Log run history in Google Sheets
-    df = sheets_client.read(ttl=0)
-    df.loc[len(df)] = [datetime.now(), video.name, video.size, 
-                         tracks['time'].max(), process_time,
-                         len(objects), len(tracks)]
-    sheets_client.update(worksheet=0, data=df)
+    if not demo_mode:
+        df = sheets_client.read(ttl=0)
+        df.loc[len(df)] = [datetime.now(), video.name, video.size, 
+                            tracks['time'].max(), process_time,
+                            len(objects), len(tracks), location]
+        sheets_client.update(worksheet=0, data=df)
 
     # Return
     r = {
@@ -105,12 +106,15 @@ st.write(
     "Upload a video below and the robots will count stuff! "
 )
 
+# Log location
+location = st.text_input("Log the location, if you'd like.")
+
 # Let the user upload a file via `st.file_uploader`.
 video = st.file_uploader(
     "Upload a video (.mp4, .mov, or .avi). We will not keep it.", type=("mp4", "mov", "avi")
 )
 
-demo_mode = st.toggle("Don't have a video? Try demo mode.")
+demo_mode = st.toggle("Don't have a video? Try **demo mode**. [not working yet]")
     # default_video = '96b3339212e7b4771f6c002cc97cff78.mp4'
     # with open(default_video, 'rb') as handle:
     #     video = handle.read()
@@ -137,13 +141,12 @@ if video and st.session_state['annotation_result'] is None:
 
         st.session_state['annotation_result'] = result
         process_time = time.time() - start_time
-        st.write("Finished processing.")
 
     # Analyze
     r = analyze(result)
     objects = r['objects']
     tracks = r['tracks']
-    st.write(f"{len(objects)} objects found:")
+    st.write(f"Finished processing. {len(objects)} objects found:")
     st.dataframe(objects)
     st.write(f"{r['n_crossing_right']} crossing right, {r['n_crossing_left']} crossing left:")
     st.dataframe(r['counts'])
