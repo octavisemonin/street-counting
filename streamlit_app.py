@@ -146,25 +146,30 @@ if video and st.session_state['annotation_result'] is None:
     r = analyze(result)
     objects = r['objects']
     tracks = r['tracks']
-    st.write(f"Finished processing. {len(objects)} objects found:")
-    st.dataframe(objects)
-    st.write(f"{r['n_crossing_right']} crossing right, {r['n_crossing_left']} crossing left:")
-    st.dataframe(r['counts'])
+    col1,col2 = st.columns(2)
 
-    # User can download their data
-    st.download_button(
-        "Download objects",
-        objects.to_csv().encode('utf-8'),
-        "objects.csv",
-        "text/csv",
-    )
+    with col1:
+        st.write(f"Finished processing. {len(objects)} objects found:")
+        st.dataframe(objects, height=261)
+    
+    with col2:
+        st.write(f"{r['n_crossing_right']} crossing right, {r['n_crossing_left']} crossing left:")
+        st.dataframe(r['counts'])
 
-    st.download_button(
-        "Download tracks",
-        tracks.to_csv().encode('utf-8'),
-        "tracks.csv",
-        "text/csv",
-    )
+        # User can download their data
+        st.download_button(
+            "Download objects",
+            objects.to_csv().encode('utf-8'),
+            "objects.csv",
+            "text/csv",
+        )
+
+        st.download_button(
+            "Download tracks",
+            tracks.to_csv().encode('utf-8'),
+            "tracks.csv",
+            "text/csv",
+        )
 
     # Load video
     with open(video.name, mode='wb') as f:
