@@ -110,24 +110,30 @@ video = st.file_uploader(
     "Upload a video (.mp4, .mov, or .avi). We will not keep it.", type=("mp4", "mov", "avi")
 )
 
+demo_mode = st.toggle("Don't have a video? Try demo mode.")
+    # default_video = '96b3339212e7b4771f6c002cc97cff78.mp4'
+    # with open(default_video, 'rb') as handle:
+    #     video = handle.read()
+    #     # video.name = default_video
+
 if video and st.session_state['annotation_result'] is None:
 
     with st.spinner("The robots are annotating (hang in there, this takes awhile)."):
         start_time = time.time()
 
-        # Send to Google
-        features = [videointelligence.Feature.OBJECT_TRACKING]
-        operation = video_client.annotate_video(
-            request={"features": features, 
-                        "input_content": video.getvalue()}
-        )
-        result = operation.result(timeout=500)
+        if demo_mode:
+            temp = 'result-4a2e7a146c8f7bc1dd61acac940c5b04.pickle'
+            temp = 'result-96b3339212e7b4771f6c002cc97cff78.pickle'
+            with open(temp, 'rb') as handle:
+                result = pickle.load(handle)
 
-        # Use this for debugging instead of using API calls:
-        # temp = 'result-4a2e7a146c8f7bc1dd61acac940c5b04.pickle'
-        # temp = 'result-96b3339212e7b4771f6c002cc97cff78.pickle'
-        # with open(temp, 'rb') as handle:
-        #     result = pickle.load(handle)
+        else:
+            features = [videointelligence.Feature.OBJECT_TRACKING]
+            operation = video_client.annotate_video(
+                request={"features": features, 
+                            "input_content": video.getvalue()}
+            )
+            result = operation.result(timeout=500)
 
         st.session_state['annotation_result'] = result
         process_time = time.time() - start_time
@@ -157,6 +163,7 @@ if video and st.session_state['annotation_result'] is None:
         "text/csv",
     )
 
+    # Load video
     with open(video.name, mode='wb') as f:
         f.write(video.read()) # save to read by cv2
 
@@ -172,6 +179,19 @@ if video and st.session_state['annotation_result'] is None:
     # Heatmap
     heatmap = np.zeros((int(height), int(width), 3))
 
+    for n,track in tracks.iterrows():
+        if track.description in colors.keys():
+            color = colors[track.description]
+            heatmap[int(track['top']*height):int(track['bottom']*height),
+                    int(track['left']*width):int(track['right']*width)] += color
+        else: 
+            color = (255,255,255)
+
+    heatmap_norm = np.log(heatmap + 1)
+    heatmap_norm = heatmap_norm/heatmap_norm.max(axis=0).max(axis=0)
+    st.write("Heatmap of bicycle (R), person (G), car (B):")
+    st.image(heatmap_norm)
+
     # Draw annotations
     output_path = f'{video.name}.annotated.mp4'
     fourcc = cv2.VideoWriter_fourcc(*'mp4v')
@@ -180,7 +200,6 @@ if video and st.session_state['annotation_result'] is None:
     progress_text = "Drawing annotations. Please wait."
     my_bar = st.progress(0, text=progress_text)
     frame_img = st.empty()
-    heat_img = st.empty()
 
     # let's consolidate this later and use tracks below
     object_annotations = result.annotation_results[0].object_annotations
@@ -204,7 +223,7 @@ if video and st.session_state['annotation_result'] is None:
         
                         if description in colors.keys():
                             color = colors[description]
-                            heatmap[top:bottom,left:right] += color
+                            # heatmap[top:bottom,left:right] += color
                         else: 
                             color = (255,255,255)
                             
@@ -222,9 +241,9 @@ if video and st.session_state['annotation_result'] is None:
             my_bar.progress(frame_number/length, text=progress_text)
             if frame_number % 10 == 0: 
                 frame_img.image(img)
-                heatmap_norm = np.log(heatmap + 1)
-                heatmap_norm = heatmap_norm/heatmap_norm.max(axis=0).max(axis=0)
-                heat_img.image(heatmap_norm)
+                # heatmap_norm = np.log(heatmap + 1)
+                # heatmap_norm = heatmap_norm/heatmap_norm.max(axis=0).max(axis=0)
+                # heat_img.image(heatmap_norm)
 
             # cv2.imshow("annotations", img)
             # if cv2.waitKey(1) == 27:
