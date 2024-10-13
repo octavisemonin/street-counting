@@ -10,6 +10,7 @@ import time
 from datetime import datetime
 from google.cloud import videointelligence
 from google.oauth2 import service_account
+from google.cloud import storage
 
 from ffmpy import FFmpeg
 
@@ -72,7 +73,7 @@ def analyze(result):
     counts = objects.groupby(['type','crossing']).size().unstack()
 
     # Log run history in Google Sheets
-    if not demo_mode:
+    if not video.name=='96b3339212e7b4771f6c002cc97cff78.mp4':
         df = sheets_client.read(ttl=0)
         df.loc[len(df)] = [datetime.now(), video.name, video.size, 
                             tracks['time'].max(), process_time,
@@ -98,6 +99,7 @@ credentials = service_account.Credentials.from_service_account_info(
     st.secrets["gcp_service_account"]
 )
 video_client = videointelligence.VideoIntelligenceServiceClient(credentials=credentials)
+storage_client = storage.Client(credentials=credentials)
 sheets_client = st.connection("gsheets", type=GSheetsConnection)
 
 # Show title and description.
@@ -113,22 +115,17 @@ location = st.text_input("Log the location, if you'd like.")
 video = st.file_uploader(
     "Upload a video (.mp4, .mov, or .avi). We will not keep it.", type=("mp4", "mov", "avi")
 )
-
-demo_mode = st.toggle("Don't have a video? Try **demo mode**. [not working yet]")
-    # default_video = '96b3339212e7b4771f6c002cc97cff78.mp4'
-    # with open(default_video, 'rb') as handle:
-    #     video = handle.read()
-    #     # video.name = default_video
+st.write("Don't have a video? Try [this](https://drive.google.com/file/d/1tdumvYYG9yDliGhDKis_a0EoVfKQpO6Y/view?usp=sharing) one.")
 
 if video and st.session_state['annotation_result'] is None:
 
-    with st.spinner("The robots are annotating (hang in there, this takes awhile)."):
+    with st.spinner("The robots are annotating (this usually takes about as long as the video)."):
         start_time = time.time()
 
-        if demo_mode:
-            temp = 'result-4a2e7a146c8f7bc1dd61acac940c5b04.pickle'
-            temp = 'result-96b3339212e7b4771f6c002cc97cff78.pickle'
-            with open(temp, 'rb') as handle:
+        if '96b3339212e7b4771f6c002cc97cff78' in video.name:
+            bucket = storage_client.bucket('street-videos')
+            blob = bucket.blob('result-96b3339212e7b4771f6c002cc97cff78.pickle')
+            with blob.open('rb') as handle:
                 result = pickle.load(handle)
 
         else:
@@ -198,7 +195,7 @@ if video and st.session_state['annotation_result'] is None:
     heatmap_norm = np.log(heatmap + 1)
     heatmap_norm = heatmap_norm/heatmap_norm.max(axis=0).max(axis=0)
     st.write("Heatmap of bicycle (R), person (G), car (B):")
-    st.image(heatmap_norm)
+    heatmap_img = st.image(heatmap_norm)
 
     # Draw annotations
     output_path = f'{video.name}.annotated.mp4'
@@ -249,13 +246,16 @@ if video and st.session_state['annotation_result'] is None:
             my_bar.progress(frame_number/length, text=progress_text)
             if frame_number % 10 == 0: 
                 frame_img.image(img)
-                # heatmap_norm = np.log(heatmap + 1)
-                # heatmap_norm = heatmap_norm/heatmap_norm.max(axis=0).max(axis=0)
-                # heat_img.image(heatmap_norm)
 
-            # cv2.imshow("annotations", img)
-            # if cv2.waitKey(1) == 27:
-            #     break
+            if frame_number == 1:
+                heatmap_norm = (heatmap_norm*255).astype('uint8')
+                # heatmap_norm = np.clip(heatmap_norm.astype('int'), a_min=None, a_max=255)
+                # heatmap_norm[heatmap_norm==0] = img[heatmap_norm==0]
+                # print(heatmap_norm.dtype)
+                # print(img.dtype)
+                dst = cv2.addWeighted(heatmap_norm,0.5,img,0.5,0)
+                st.image(dst)
+
         else:
             cap.release()
             out.release()
